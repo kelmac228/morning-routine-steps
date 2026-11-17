@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Track your morning walks and reading and work toward a weekly reward.">
+  <meta name="theme-color" content="#f8f5ec">
+  <title>Morning Routine</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #24362e;
+      background: #f8f5ec;
+      font-synthesis: none;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { width: min(100% - 32px, 630px); margin: 0 auto; padding: clamp(28px, 6vw, 66px) 0 36px; }
+    header { margin-bottom: 26px; }
+    .date { margin: 0 0 8px; font-size: .875rem; font-weight: 650; color: #506056; }
+    h1 { margin: 0; font-family: Georgia, serif; font-weight: 500; font-size: clamp(2.5rem, 8vw, 4rem); line-height: 1.04; letter-spacing: -.055em; }
+    h2 { margin: 0; font-size: 1.05rem; }
+    p { line-height: 1.45; }
+    .cue { margin: 12px 0 0; color: #46594d; }
+    .habits { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 3px solid #235d48; outline-offset: 4px; }
+    .habit {
+      display: grid; justify-items: start; gap: 7px; text-align: left; padding: 17px;
+      background: #fffdf7; border: 1px solid #cdd5c8; border-radius: 16px; color: inherit;
+    }
+    .habit:hover { border-color: #547260; }
+    .habit[aria-pressed="true"] { background: #e0ebdd; border-color: #6f8f76; }
+    .habit-name { font-weight: 750; font-size: 1rem; }
+    .habit-state { color: #46594d; font-size: .82rem; }
+    .marker {
+      display: grid; place-items: center; width: 26px; height: 26px; margin-bottom: 4px;
+      border: 1px solid #cdd5c8; border-radius: 50%; background: #f4f6ef; font-weight: 700;
+    }
+    .habit[aria-pressed="true"] .marker { background: #2c5944; color: white; border-color: #2c5944; }
+    .week { margin-top: 24px; padding: 20px; border-radius: 16px; background: #e9eee3; }
+    .week-title { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+    #week-dates { font-size: .82rem; color: #46594d; }
+    .metric { margin-top: 14px; }
+    .metric-label { display: flex; justify-content: space-between; gap: 8px; font-size: .88rem; }
+    progress { display: block; width: 100%; height: 8px; margin-top: 6px; border: 0; border-radius: 6px; overflow: hidden; background: #cbd7c8; }
+    progress::-webkit-progress-bar { background: #cbd7c8; }
+    progress::-webkit-progress-value { background: #38654e; border-radius: 6px; }
+    progress::-moz-progress-bar { background: #38654e; border-radius: 6px; }
+    .reward { margin-top: 12px; padding: 17px 20px; background: #f2e5c8; border-radius: 16px; }
+    .reward p { margin: 6px 0 0; }
+    .undo { margin-top: 8px; min-height: 44px; padding: 8px 0; border: 0; background: transparent; text-decoration: underline; color: #365947; font-size: .85rem; }
+    .note { margin: 12px 0 0; font-size: .82rem; color: #506056; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="date" id="today"></p>
+      <h1>Morning Routine</h1>
+      <p class="cue">Put on your walking shoes. Pick up your book when you get back.</p>
+    </header>
+
+    <section aria-label="Log today's habits">
+      <div class="habits">
+        <button type="button" class="habit" id="walk" aria-label="Walked 15 minutes" aria-pressed="false">
+          <span class="marker" aria-hidden="true">+</span>
+          <span class="habit-name">Walked 15 minutes</span>
+          <span class="habit-state" aria-hidden="true">Tap to log</span>
+        </button>
+        <button type="button" class="habit" id="read" aria-label="Read 10 minutes" aria-pressed="false">
+          <span class="marker" aria-hidden="true">+</span>
+          <span class="habit-name">Read 10 minutes</span>
+          <span class="habit-state" aria-hidden="true">Tap to log</span>
+        </button>
+      </div>
+      <button type="button" class="undo" id="undo" hidden>Undo today’s last log</button>
+    </section>
+
+    <section class="week" aria-labelledby="week-heading">
+      <div class="week-title">
+        <h2 id="week-heading">This week</h2>
+        <span id="week-dates"></span>
+      </div>
+      <div class="metric">
+        <div class="metric-label"><span id="walk-label">Walks</span><span id="walk-total"></span></div>
+        <progress id="walk-progress" aria-labelledby="walk-label" value="0" max="3"></progress>
+      </div>
+      <div class="metric">
+        <div class="metric-label"><span id="read-label">Reading sessions</span><span id="read-total"></span></div>
+        <progress id="read-progress" aria-labelledby="read-label" value="0" max="3"></progress>
+      </div>
+    </section>
+
+    <section class="reward" aria-labelledby="reward-heading">
+      <h2 id="reward-heading">Saturday coffee shop visit</h2>
+      <p id="reward-status"></p>
+    </section>
+    <p class="note" id="storage-status">Progress is saved in this browser.</p>
+    <p class="sr-only" id="announcement" role="status"></p>
+  </main>
+
+  <script>
+    // Change the weekly targets here.
+    const goals = { walk: 3, read: 3 };
+    const morningStepThreshold = 3000;
+    const habits = ["walk", "read"];
+    const storageKey = "morning-routine-v1";
+    const get = id => document.getElementById(id);
+    let log = {};
+    let displayedDate = "";
+
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      if (saved && typeof saved === "object" && !Array.isArray(saved)) log = saved;
+    } catch {
+      showStorageWarning();
+    }
+
+    function showStorageWarning() {
+      get("storage-status").textContent = "Browser storage is unavailable. Progress may reset when you close or refresh this page.";
+    }
+
+    function save() {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(log));
+      } catch {
+        showStorageWarning();
+      }
+    }
+
+    // Use the phone's local calendar so midnight and Monday happen at the right time.
+    function dateKey(date) {
+      const twoDigits = value => String(value).padStart(2, "0");
+      return [date.getFullYear(), twoDigits(date.getMonth() + 1), twoDigits(date.getDate())].join("-");
+    }
+
+    function offsetDate(date, days) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days, 12);
+    }
+
+    function entriesFor(key) {
+      const entries = log[key];
+      return Array.isArray(entries) ? [...new Set(entries.filter(habit => habits.includes(habit)))] : [];
+    }
+
+    // The iPhone shortcut supplies the finished window's date and total in the URL fragment.
+    // A fragment stays in the browser. The dashboard saves only the walk checkmark.
+    function applyMorningSteps() {
+      const match = location.hash.match(/^#morning-steps=(\d{1,8})&date=(\d{4}-\d{2}-\d{2})$/);
+      if (!match) return;
+      history.replaceState(null, "", location.pathname + location.search);
+
+      const [, stepCount, day] = match;
+      const now = new Date();
+      if (day !== dateKey(now) || Number(stepCount) <= morningStepThreshold) return;
+
+      const entries = entriesFor(day);
+      if (entries.includes("walk")) return;
+      log[day] = [...entries, "walk"];
+      save();
+      render(now);
+      get("announcement").textContent = "Walk logged from your morning step count.";
+    }
+
+    function render(now = new Date()) {
+      displayedDate = dateKey(now);
+      const monday = offsetDate(now, -((now.getDay() + 6) % 7));
+      const weekDates = Array.from({ length: 7 }, (_, index) => dateKey(offsetDate(monday, index)));
+      const todayEntries = entriesFor(displayedDate);
+      get("today").textContent = new Intl.DateTimeFormat(undefined, {
+        weekday: "long", month: "long", day: "numeric",
+      }).format(now);
+      const shortDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+      get("week-dates").textContent = shortDate.format(monday) + " – " + shortDate.format(offsetDate(monday, 6));
+      get("undo").hidden = todayEntries.length === 0;
+
+      const remaining = [];
+      for (const habit of habits) {
+        const count = weekDates.filter(key => entriesFor(key).includes(habit)).length;
+        const done = todayEntries.includes(habit);
+        const button = get(habit);
+        button.setAttribute("aria-pressed", String(done));
+        button.querySelector(".marker").textContent = done ? "✓" : "+";
+        button.querySelector(".habit-state").textContent = done ? "Logged today" : "Tap to log";
+        get(habit + "-total").textContent = count + " / " + goals[habit];
+        const progress = get(habit + "-progress");
+        progress.max = goals[habit];
+        progress.value = Math.min(count, goals[habit]);
+        const left = goals[habit] - count;
+        if (left > 0) {
+          const label = habit === "walk" ? "walk" : "reading session";
+          remaining.push(left + " " + label + (left === 1 ? "" : "s"));
+        }
+      }
+      get("reward-status").textContent = remaining.length
+        ? remaining.join(" and ") + " to go"
+        : "Reward earned!";
+    }
+
+    for (const habit of habits) {
+      get(habit).addEventListener("click", () => {
+        const now = new Date();
+        const key = dateKey(now);
+        const entries = entriesFor(key);
+        if (entries.includes(habit)) {
+          render(now);
+          get("announcement").textContent = "Already logged for today.";
+          return;
+        }
+        log[key] = [...entries, habit];
+        save();
+        render(now);
+        get("announcement").textContent = get(habit).getAttribute("aria-label") + " logged.";
+      });
+    }
+
+    get("undo").addEventListener("click", () => {
+      const now = new Date();
+      const key = dateKey(now);
+      const entries = entriesFor(key);
+      if (!entries.length) {
+        render(now);
+        return;
+      }
+      entries.pop();
+      if (entries.length) log[key] = entries;
+      else delete log[key];
+      save();
+      render(now);
+      get("announcement").textContent = "Last entry undone.";
+    });
+
+    function checkDate() {
+      const now = new Date();
+      if (dateKey(now) !== displayedDate) render(now);
+    }
+
+    document.addEventListener("visibilitychange", checkDate);
+    window.addEventListener("hashchange", applyMorningSteps);
+    setInterval(checkDate, 30000);
+    render();
+    applyMorningSteps();
+  </script>
+</body>
+</html>
